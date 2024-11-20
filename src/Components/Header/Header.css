@@ -1,0 +1,18 @@
+
+.headerMainContainer{
+    display: flex;
+    flex-direction: row;
+    justify-content: space-evenly;
+    width: "100%";
+    padding: 20px;
+    background: linear-gradient(to bottom, #000000, #232323);
+}
+
+a{
+    text-decoration: none;
+    color: #fff
+}
+
+.active{
+    color:#f79256;
+}
