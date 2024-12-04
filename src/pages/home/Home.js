@@ -1,10 +1,13 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import "./Home.css"; // Import the CSS file
 import runningImage from "../../assets/runningMan.webp";
 
 import { firestore } from "../../firebase";
-import { addDoc, getDoc, collection } from "firebase/firestore";
+import { doc, setDoc, collection, getDoc } from "firebase/firestore";
 
+// The attempt at using firebase
+
+// The base componet of the Home page
 const Home = () => {
   const [profiles, setProfiles] = useState([]);
   const [name, setName] = useState("");
@@ -13,15 +16,14 @@ const Home = () => {
   const [activityLevel, setActivityLevel] = useState("");
   const [goal, setGoal] = useState("");
   const [weightLbs, setWeightLbs] = useState("");
-
   const [isEditing, setIsEditing] = useState(false);
   const [editIndex, setEditIndex] = useState(null);
-
+  const [userProfile, setUserProfile] = useState({})
   const lbsToKgs = (lbs) => {
     return (lbs * 0.453592).toFixed(2);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (age <= 0 || isNaN(age)) {
@@ -29,25 +31,27 @@ const Home = () => {
       return;
     }
 
-    const newProfile = { name, age, gender, activityLevel, goal, weightLbs };
+   
+    const docData = {
+      "name": name,
+      "age" : age,
+      "gender" : gender,
+      "activityLevel" : activityLevel,
+      "goal" :goal, 
+      "weightLbs" : weightLbs
 
-    if (isEditing) {
-      const updatedProfiles = profiles.map((profile, index) =>
-        index === editIndex ? newProfile : profile
-      );
-      setProfiles(updatedProfiles);
-      setIsEditing(false);
-      setEditIndex(null);
-    } else {
-      setProfiles([...profiles, newProfile]);
     }
 
-    setName("");
-    setAge("");
-    setGender("");
-    setActivityLevel("");
-    setGoal("");
-    setWeightLbs("");
+    try {
+      const docRef = doc(firestore, "data", "user")
+    
+    await setDoc(docRef, docData)
+    
+
+    console.log("worked")
+    } catch(e){
+      console.error("didn't work", e)
+    }
   };
 
   const handleEdit = (index) => {
@@ -67,10 +71,28 @@ const Home = () => {
     setProfiles(updatedProfiles);
   };
 
-  const firestoreRef = collection(firestore, "test");
+  const getData = async () => {
+    const firestoreRef = doc(firestore, "data", "user");
 
+    try{
+     const snapShot = await getDoc(firestoreRef);
 
- // console.log(firestoreRef.getDoc("test"))
+    if(snapShot.exists()){
+      setUserProfile(snapShot.data())
+    }else{
+      console.log("Nope")
+    }
+
+    }catch(err){
+      console.log(err)
+    }
+  
+  }
+
+ useEffect(() =>{
+   getData()
+  
+ })
 
   return (
     <div className="container">
@@ -80,7 +102,6 @@ const Home = () => {
       </h1>
       <h2>{isEditing ? "Edit Profile" : "Enter Your Profile Details"}</h2>
       <img src={runningImage} alt="Running" width={100} />
-
       <form onSubmit={handleSubmit} className="form-container">
         <div className="form-group">
           <label>
@@ -178,26 +199,20 @@ const Home = () => {
 
       <h2>All Profiles</h2>
       <div className="profile-list">
-        {profiles.length === 0 ? (
+        {!userProfile.name ? (
           <p>No profiles added yet.</p>
         ) : (
-          profiles.map((profile, index) => (
-            <div key={index} className="profile-card">
+            <div className="profile-card">
               <div className="profile-details">
-                <p><strong>Name:</strong> {profile.name}</p>
-                <p><strong>Age:</strong> {profile.age}</p>
-                <p><strong>Gender:</strong> {profile.gender}</p>
-                <p><strong>Activity Level:</strong> {profile.activityLevel}</p>
-                <p><strong>Goals:</strong> {profile.goal}</p>
-                <p><strong>Weight:</strong> {profile.weightLbs} lbs ({lbsToKgs(profile.weightLbs)} kg)</p>
-              </div>
-
-              <div className="profile-actions">
-                <button onClick={() => handleEdit(index)} className="edit-button">Edit</button>
-                <button onClick={() => handleDelete(index)} className="delete-button">Delete</button>
+                <p><strong>Name:</strong> {userProfile.name}</p>
+                <p><strong>Age:</strong> {userProfile.age}</p>
+                <p><strong>Gender:</strong> {userProfile.gender}</p>
+                <p><strong>Activity Level:</strong> {userProfile.activityLevel}</p>
+                <p><strong>Goals:</strong> {userProfile.goal}</p>
+                <p><strong>Weight:</strong> {userProfile.weightLbs} lbs ({lbsToKgs(userProfile.weightLbs)} kg)</p>
               </div>
             </div>
-          ))
+          
         )}
       </div>
     </div>

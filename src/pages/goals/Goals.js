@@ -1,46 +1,153 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import "./Goals.css";
+import { firestore } from "../../firebase";
+import { doc, setDoc, collection, getDoc } from "firebase/firestore";
 
 const Goals = () => {
   const [prompt, setPrompt] = useState("");
   const [selectedGoal, setSelectedGoal] = useState("");
   const [selectedDays, setSelectedDays] = useState(null);
   const [selectedProtein, setSelectedProtein] = useState("");
+  const [selectedDuration, setSelectedDuration] = useState("");
+  const [messages, setMessages] = useState([]);
+  const [userInput, setUserInput] = useState("");
+  const [userGoals, setUserGoals] = useState({});
 
-  const handleGoalChange = (e) => {
-    setSelectedGoal(e.target.value);
+  const SaveButton = (evt) => {
+    return (
+      <button
+        onClick={()=>handleSubmit(evt)}
+        style={{
+          backgroundColor: "#1d4e89",
+          color: "white",
+          border: "none",
+          borderRadius: "5px",
+          padding: "10px 20px",
+          fontSize: "16px",
+          cursor: "pointer",
+        }}
+      >
+        Save
+      </button>
+    );
   };
+  
 
-  const handleChange = (e) => {
-    setPrompt(e.target.value);
-  };
+  const durations = [
+    "15 minutes",
+    "30 minutes",
+    "45 minutes",
+    "1 hour",
+    "1 hour 15 minutes",
+    "1 hour 30 minutes",
+    "1 hour 45 minutes",
+    "2 hours",
+    "2 hours 15 minutes",
+    "2 hours 30 minutes",
+  ];
 
-  const handleDaysSelect = (days) => {
-    setSelectedDays(days);
-  };
+  const handleSubmit = async (e) => {
+    e.preventDefault();
 
-  const handleProteinSelect = (protein) => {
-    setSelectedProtein(protein);
-  };
+    const docData = {
+      "goal": selectedGoal,
+      "numberWorkoutDays" : selectedDays,
+      "duration" : selectedDuration,
+      "selectedProtein" : selectedProtein,
+    }
 
-  const submitPrompt = () => {
-    if (prompt) {
-      alert(
-        `Your question: "${prompt}" has been submitted!\nGoal: ${selectedGoal}\nDays: ${selectedDays}\nProtein: ${selectedProtein}`
-      );
-      // Here you can add code to send the prompt, goal, days, and protein to the AI backend
-    } else {
-      alert("Please enter a question.");
+    try {
+      const docRef = doc(firestore, "goals", "user")
+    
+    await setDoc(docRef, docData)
+    
+
+    console.log("worked")
+    } catch(e){
+      console.error("didn't work", e)
     }
   };
 
+  const getData = async () => {
+    const firestoreRef = doc(firestore, "goal", "user");
+
+    try{
+      const snapShot = await getDoc(firestoreRef);
+ 
+     if(snapShot.exists()){
+       setUserGoals(snapShot.data())
+     }else{
+       console.log("Nope")
+     }
+ 
+     }catch(err){
+       console.log(err)
+     }
+   
+}
+
+const handleDurationChange = (e) => {
+  setSelectedDuration(e.target.value);
+};
+
+  const handleSendMessage = () => {
+    if (userInput) {
+      const newMessage = { sender: "User", text: userInput };
+      setMessages((prevMessages) => [...prevMessages, newMessage]);
+      setUserInput("");
+
+      setTimeout(() => {
+        const botResponse = { sender: "Bot", text: "Thanks for your message! Let me help you with that." };
+        setMessages((prevMessages) => [...prevMessages, botResponse]);
+      }, 1000);
+    }
+  };
+
+  const getRecommendations = () => {
+    if (!selectedGoal || !selectedDays || !selectedDuration || !selectedProtein) {
+      return "Please complete all selections to see your personalized recommendations.";
+    }
+
+    let recommendations = `Based on your selections: \n`;
+
+    // Goal-based suggestions
+    if (selectedGoal === "cardio") {
+      recommendations += `- Focus on aerobic exercises like running, cycling, or swimming for ${selectedDuration}.\n`;
+    } else if (selectedGoal === "gainMuscle") {
+      recommendations += `- Prioritize strength training exercises (e.g., weightlifting) for ${selectedDuration}.\n`;
+    } else if (selectedGoal === "loseWeight") {
+      recommendations += `- Combine high-intensity interval training (HIIT) with strength exercises for ${selectedDuration}.\n`;
+    }
+
+    // Days and protein intake
+    recommendations += `- Workout ${selectedDays} days a week, ensuring proper rest and recovery.\n`;
+    recommendations += `- Maintain a daily protein intake of ${selectedProtein} to support your goal.\n`;
+
+    recommendations += `Stay consistent and listen to your body!`;
+
+    return recommendations;
+  };
+
+  useEffect(() => {
+    getData()
+  }, [])
+
+
+  useEffect(() => {
+    const chatBox = document.querySelector(".chat-box");
+    if (chatBox) {
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+  }, [messages]);
+
   return (
-    <div style={styles.container}>
+    <div className="container">
       {/* Goal Selection Dropdown */}
       <div style={styles.goalContainer}>
         <h3>Select Your Goal</h3>
         <select
           value={selectedGoal}
-          onChange={handleGoalChange}
+          onChange={(e) => setSelectedGoal(e.target.value)}
           style={styles.select}
         >
           <option value="">Choose a goal</option>
@@ -60,11 +167,11 @@ const Goals = () => {
           {[1, 2, 3, 4, 5, 6, 7].map((days) => (
             <button
               key={days}
-              onClick={() => handleDaysSelect(days)}
+              onClick={() => setSelectedDays(days)}
               style={{
                 ...styles.dayButton,
-                backgroundColor: selectedDays === days ? "#007bff" : "#f0f0f0",
-                color: selectedDays === days ? "#fff" : "#333",
+                backgroundColor: selectedDays === days ? "#007BFF" : "#FFF",
+                color: selectedDays === days ? "#FFF" : "#007BFF",
               }}
             >
               {days}
@@ -76,78 +183,66 @@ const Goals = () => {
         </p>
       </div>
 
-      {/* Daily Protein Selection */}
+      {/* Duration of Workouts Dropdown */}
+      <div style={styles.durationContainer}>
+        <h3>Duration of Workouts!</h3>
+        <select
+          value={selectedDuration}
+          onChange={(evt)=> handleDurationChange(evt)}
+          style={styles.select}
+        >
+          <option value="">Choose a duration</option>
+          {durations.map((duration, index) => (
+            <option key={index} value={duration}>
+              {duration}
+            </option>
+          ))}
+        </select>
+        <p style={styles.selectedDuration}>
+          {selectedDuration ? `Selected Duration: ${selectedDuration}` : ""}
+        </p>
+      </div>
+
+      {/* Protein Intake Selection */}
       <div style={styles.proteinContainer}>
         <h3>Select Your Daily Protein Intake</h3>
         <div style={styles.buttonGroup}>
           <button
-            onClick={() =>
-              handleProteinSelect("Sedentary (56g or 0.8 x body weight)")
-            }
+            onClick={() => setSelectedProtein("Sedentary (56g or 0.8 x body weight)")}
             style={{
               ...styles.proteinButton,
-              backgroundColor:
-                selectedProtein === "Sedentary (56g or 0.8 x body weight)"
-                  ? "#007bff"
-                  : "#f0f0f0",
-              color:
-                selectedProtein === "Sedentary (56g or 0.8 x body weight)"
-                  ? "#fff"
-                  : "#333",
+              backgroundColor: selectedProtein === "Sedentary (56g or 0.8 x body weight)" ? "#007BFF" : "#FFF",
+              color: selectedProtein === "Sedentary (56g or 0.8 x body weight)" ? "#FFF" : "#007BFF",
             }}
           >
             Sedentary
           </button>
           <button
-            onClick={() =>
-              handleProteinSelect("Active (84-112g or 1.2-1.6 x body weight)")
-            }
+            onClick={() => setSelectedProtein("Active (84-112g or 1.2-1.6 x body weight)")}
             style={{
               ...styles.proteinButton,
-              backgroundColor:
-                selectedProtein === "Active (84-112g or 1.2-1.6 x body weight)"
-                  ? "#007bff"
-                  : "#f0f0f0",
-              color:
-                selectedProtein === "Active (84-112g or 1.2-1.6 x body weight)"
-                  ? "#fff"
-                  : "#333",
+              backgroundColor: selectedProtein === "Active (84-112g or 1.2-1.6 x body weight)" ? "#007BFF" : "#FFF",
+              color: selectedProtein === "Active (84-112g or 1.2-1.6 x body weight)" ? "#FFF" : "#007BFF",
             }}
           >
             Active
           </button>
           <button
-            onClick={() =>
-              handleProteinSelect("Athlete (113-154g or 1.6-2.2 x body weight)")
-            }
+            onClick={() => setSelectedProtein("Athlete (113-154g or 1.6-2.2 x body weight)")}
             style={{
               ...styles.proteinButton,
-              backgroundColor:
-                selectedProtein === "Athlete (113-154g or 1.6-2.2 x body weight)"
-                  ? "#007bff"
-                  : "#f0f0f0",
-              color:
-                selectedProtein === "Athlete (113-154g or 1.6-2.2 x body weight)"
-                  ? "#fff"
-                  : "#333",
+              backgroundColor: selectedProtein === "Athlete (113-154g or 1.6-2.2 x body weight)" ? "#007BFF" : "#FFF",
+              color: selectedProtein === "Athlete (113-154g or 1.6-2.2 x body weight)" ? "#FFF" : "#007BFF",
             }}
           >
             Athlete
           </button>
           <button
-            onClick={() =>
-              handleProteinSelect("Lose Weight (0.7-1.5 x body weight)")
-            }
+            onClick={() => setSelectedProtein("Lose Weight (0.7-1.5 x body weight)")}
             style={{
               ...styles.proteinButton,
-              backgroundColor:
-                selectedProtein === "Lose Weight (0.7-1.5 x body weight)"
-                  ? "#007bff"
-                  : "#f0f0f0",
-              color:
-                selectedProtein === "Lose Weight (0.7-1.5 x body weight)"
-                  ? "#fff"
-                  : "#333",
+              backgroundColor: selectedProtein === "Lose Weight (0.7-1.5 x body weight)" ? "#007BFF" : "#FFF",
+              color: selectedProtein === "Lose Weight (0.7-1.5 x body weight)" ? "#FFF" : "#007BFF",
             }}
           >
             Lose Weight
@@ -158,114 +253,147 @@ const Goals = () => {
         </p>
       </div>
 
-      {/* Prompt Box */}
-      <div style={styles.promptBox}>
-        <h2>Ask the AI</h2>
-        <textarea
-          value={prompt}
-          onChange={handleChange}
-          placeholder="Type your question here..."
-          style={styles.textarea}
+     <div>
+     <button
+        onClick={(evt)=>handleSubmit(evt)}
+        style={{
+          backgroundColor: "#1d4e89",
+          color: "white",
+          border: "none",
+          borderRadius: "5px",
+          padding: "10px 20px",
+          fontSize: "16px",
+          cursor: "pointer",
+        }}
+      >
+        Save
+      </button>  
+    </div>       
+    
+
+      {/* Recommendations Section */}
+      <div style={styles.recommendationsContainer}>
+        <h3>Our Recommendations</h3>
+        <div style={styles.recommendationsBox}>
+          <p>{getRecommendations()}</p>
+        </div>
+      </div>
+
+      {/* Chat Section */}
+      <div style={{ marginTop: "10px", textAlign: "center" }}>
+        Need help with workout ideas or safer workouts? Just ask me!
+      </div>
+      <div
+        style={{
+          marginTop: "10px",
+          maxHeight: "200px",
+          overflowY: "scroll",
+          textAlign: "left",
+          backgroundColor: "#FFF",
+          padding: "15px",
+          borderRadius: "5px",
+          border: "1px solid #ccc",
+        }}
+      >
+        {messages.map((message, index) => (
+          <p
+            key={index}
+            style={{
+              margin: "5px 0",
+              textAlign: message.sender === "Bot" ? "left" : "right",
+              color: "#000",
+            }}
+          >
+            <strong>{message.sender}:</strong> {message.text}
+          </p>
+        ))}
+      </div>
+      <div style={{ display: "flex", marginTop: "10px" }}>
+        <input
+          type="text"
+          value={userInput}
+          onChange={(e) => setUserInput(e.target.value)}
+          placeholder="Type your message..."
+          style={{
+            flex: 1,
+            padding: "8px",
+            marginRight: "10px",
+            borderRadius: "5px",
+            border: "1px solid #ccc",
+          }}
         />
-        <button onClick={submitPrompt} style={styles.button}>
-          Ask
+        <button
+          onClick={handleSendMessage}
+          style={{
+            padding: "8px 15px",
+            backgroundColor: "#007BFF",
+            color: "#FFF",
+            border: "none",
+            borderRadius: "5px",
+            cursor: "pointer",
+          }}
+        >
+          Send
         </button>
+
+        <div className="profile-list">
+        {!userGoals.name ? (
+          <p>No profiles added yet.</p>
+        ) : (
+            <div className="profile-card">
+              <div className="profile-details">
+                <p><strong>Name:</strong> {userGoals.selectedGoal}</p>
+                <p><strong>Age:</strong> {userGoals.selectedDays}</p>
+                <p><strong>Gender:</strong> {userGoals.selectedDuration}</p>
+                <p><strong>Activity Level:</strong> {userGoals.selectedProtein}</p>
+              </div>
+            </div>
+        )}
+
+<button
+          onClick={handleSendMessage}
+          style={{
+            padding: "8px 15px",
+            backgroundColor: "#007BFF",
+            color: "#FFF",
+            border: "none",
+            borderRadius: "5px",
+            cursor: "pointer",
+          }}
+        >
+          Send
+        </button>
+
+
+      </div>
       </div>
     </div>
+
+    
   );
 };
 
 const styles = {
-  container: {
-    fontFamily: "Arial, sans-serif",
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    flexDirection: "column", // Stack the elements vertically
-    height: "100vh",
-    margin: 0,
-    backgroundColor: "#f4f4f9",
-  },
-  goalContainer: {
-    marginBottom: "20px", // Add space between goal selector and prompt box
-    textAlign: "center",
-  },
-  select: {
-    padding: "10px",
-    fontSize: "1em",
-    borderRadius: "4px",
+  goalContainer: { margin: "20px 0" },
+  select: { padding: "10px", borderRadius: "5px", border: "1px solid #ccc", width: "100%" },
+  selectedGoal: { fontSize: "14px", color: "#555" },
+  daysContainer: { marginTop: "20px" },
+  buttonGroup: { display: "flex", gap: "10px" },
+  dayButton: { padding: "10px 15px", borderRadius: "5px", border: "1px solid #ccc", cursor: "pointer" },
+  selectedDays: { fontSize: "14px", color: "#555" },
+  durationContainer: { marginTop: "20px" },
+  selectedDuration: { fontSize: "14px", color: "#555" },
+  proteinContainer: { marginTop: "20px" },
+  proteinButton: { padding: "10px 15px", borderRadius: "5px", border: "1px solid #ccc", cursor: "pointer" },
+  selectedProtein: { fontSize: "14px", color: "#555" },
+  recommendationsContainer: { marginTop: "20px" },
+  recommendationsBox: {
+    padding: "15px",
+    borderRadius: "5px",
     border: "1px solid #ccc",
-  },
-  selectedGoal: {
-    marginTop: "10px",
-    fontSize: "1.1em",
-    color: "#555",
-  },
-  daysContainer: {
-    marginBottom: "20px",
-    textAlign: "center",
-  },
-  buttonGroup: {
-    display: "flex",
-    justifyContent: "center",
-    gap: "10px",
-    marginBottom: "10px",
-  },
-  dayButton: {
-    padding: "10px 20px",
-    fontSize: "1.1em",
-    borderRadius: "4px",
-    border: "1px solid #ccc",
-    cursor: "pointer",
-    transition: "background-color 0.3s",
-  },
-  selectedDays: {
-    fontSize: "1.1em",
-    color: "#555",
-  },
-  proteinContainer: {
-    marginBottom: "20px",
-    textAlign: "center",
-  },
-  proteinButton: {
-    padding: "10px 20px",
-    fontSize: "1.1em",
-    borderRadius: "4px",
-    border: "1px solid #ccc",
-    cursor: "pointer",
-    transition: "background-color 0.3s",
-  },
-  selectedProtein: {
-    fontSize: "1.1em",
-    color: "#555",
-  },
-  promptBox: {
-    width: "300px",
-    padding: "20px",
-    backgroundColor: "#fff",
-    boxShadow: "0px 4px 8px rgba(0, 0, 0, 0.2)",
-    borderRadius: "8px",
-    textAlign: "center",
-  },
-  textarea: {
-    width: "100%",
-    height: "100px",
-    padding: "10px",
-    fontSize: "1em",
-    border: "1px solid #ccc",
-    borderRadius: "4px",
-    resize: "none",
-  },
-  button: {
-    width: "100%",
-    padding: "10px",
-    marginTop: "10px",
-    backgroundColor: "#007bff",
-    color: "white",
-    fontSize: "1em",
-    border: "none",
-    borderRadius: "4px",
-    cursor: "pointer",
+    backgroundColor: "#F9F9F9",
+    fontSize: "14px",
+    color: "#333",
   },
 };
 
